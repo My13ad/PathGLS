@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.env
+temp_patches/
+cache_features.json
+*.xlsx
+*.svs
+*.ndpi
