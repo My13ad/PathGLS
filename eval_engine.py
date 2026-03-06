@@ -25,10 +25,13 @@ from utils_wsi import WSIProcessor
 
 try:
     import spacy
+
     SPACY_AVAILABLE = True
 except ImportError:
     SPACY_AVAILABLE = False
-    print("[Warning] 'spacy' not found. Entity extraction will rely on simple splitting.")
+    print(
+        "[Warning] 'spacy' not found. Entity extraction will rely on simple splitting."
+    )
 
 PROMPT_GRAPH_EXTRACTION = """
 As a Pathology Assistant, extract semantic relationships from the text into structured triplets.
@@ -58,7 +61,9 @@ class HighResCLIPEncoder:
     def get_image_features(self, full_image):
         w, h = full_image.size
         if w < self.patch_size or h < self.patch_size:
-            inputs = self.processor(images=full_image, return_tensors="pt").to(self.device)
+            inputs = self.processor(images=full_image, return_tensors="pt").to(
+                self.device
+            )
             with torch.no_grad():
                 return self.model.get_image_features(**inputs)
 
@@ -104,7 +109,9 @@ class MedicalKnowledgeEngine:
                     self.nlp = spacy.load("en_core_web_sm")
                 except Exception:
                     self.nlp = None
-        self.encoder = nli_model.base_model if hasattr(nli_model, "base_model") else nli_model
+        self.encoder = (
+            nli_model.base_model if hasattr(nli_model, "base_model") else nli_model
+        )
         self.tokenizer = nli_tokenizer
         self.device = device
 
@@ -182,7 +189,9 @@ class GraphLogicEngine:
         prompt = PROMPT_GRAPH_EXTRACTION.format(text=text)
 
         try:
-            res = self.llm_client.chat_complete(prompt, temperature=0.0, image_path=None)
+            res = self.llm_client.chat_complete(
+                prompt, temperature=0.0, image_path=None
+            )
             clean_res = res.strip()
 
             json_match = re.search(r"```json(.*?)```", clean_res, re.DOTALL)
@@ -252,10 +261,12 @@ class AutoCalibEvaluator:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         print(f">>> [EvalEngine] Device: {self.device}")
 
-        self.nli_model_name = "ChamW/roberta-base-mednli"
+        self.nli_model_name = "pritamdeka/PubMedBERT-MNLI-MedNLI"
         print(f">>> [EvalEngine] Loading Logic Model: {self.nli_model_name}")
         try:
-            self.nli_tokenizer = AutoTokenizer.from_pretrained(self.nli_model_name, use_fast=False)
+            self.nli_tokenizer = AutoTokenizer.from_pretrained(
+                self.nli_model_name, use_fast=False
+            )
             self.nli_model = AutoModelForSequenceClassification.from_pretrained(
                 self.nli_model_name
             ).to(self.device)
@@ -269,7 +280,9 @@ class AutoCalibEvaluator:
         except Exception as e:
             print(f"[Error] Loading MedNLI: {e}. Fallback to DeBERTa.")
             self.nli_model_name = "cross-encoder/nli-deberta-v3-base"
-            self.nli_tokenizer = AutoTokenizer.from_pretrained(self.nli_model_name, use_fast=False)
+            self.nli_tokenizer = AutoTokenizer.from_pretrained(
+                self.nli_model_name, use_fast=False
+            )
             self.nli_model = AutoModelForSequenceClassification.from_pretrained(
                 self.nli_model_name
             ).to(self.device)
@@ -278,11 +291,15 @@ class AutoCalibEvaluator:
         self.visual_model_name = "vinid/plip"
         print(f">>> [EvalEngine] Loading Visual Model: {self.visual_model_name}")
         try:
-            self.clip_model = CLIPModel.from_pretrained(self.visual_model_name).to(self.device)
+            self.clip_model = CLIPModel.from_pretrained(self.visual_model_name).to(
+                self.device
+            )
             self.clip_processor = CLIPProcessor.from_pretrained(self.visual_model_name)
         except Exception:
             print("[Warning] PLIP load failed. Fallback to Standard CLIP.")
-            self.clip_model = CLIPModel.from_pretrained(Config.CLIP_MODEL).to(self.device)
+            self.clip_model = CLIPModel.from_pretrained(Config.CLIP_MODEL).to(
+                self.device
+            )
             self.clip_processor = CLIPProcessor.from_pretrained(Config.CLIP_MODEL)
 
         self.high_res_encoder = HighResCLIPEncoder(
@@ -327,7 +344,9 @@ class AutoCalibEvaluator:
                 self.feature_cache,
             )
         except Exception as e:
-            print(f"[Warning] Remote graph engine init failed: {e}. Fallback to default graph engine.")
+            print(
+                f"[Warning] Remote graph engine init failed: {e}. Fallback to default graph engine."
+            )
             return self.graph_engine
         finally:
             Config.MODEL_SOURCE = original_mode
@@ -405,25 +424,35 @@ class AutoCalibEvaluator:
         try:
             full_image = Image.open(img_path).convert("RGB")
             image_features = self.high_res_encoder.get_image_features(full_image)
-            image_features = image_features / image_features.norm(p=2, dim=-1, keepdim=True)
+            image_features = image_features / image_features.norm(
+                p=2, dim=-1, keepdim=True
+            )
             text_inputs = self.clip_processor(
                 text=triplets[:15], return_tensors="pt", padding=True, truncation=True
             ).to(self.device)
             with torch.no_grad():
                 text_features = self.clip_model.get_text_features(**text_inputs)
-                text_features = text_features / text_features.norm(p=2, dim=-1, keepdim=True)
+                text_features = text_features / text_features.norm(
+                    p=2, dim=-1, keepdim=True
+                )
             similarity = image_features @ text_features.t()
             score = similarity.mean().item()
             raw_score = max(0.0, score)
         except Exception:
             raw_score = 0.20
-        return 1.0 / (1.0 + math.exp(-self.sigmoid_k * (raw_score - self.thresh_grounding)))
+        return 1.0 / (
+            1.0 + math.exp(-self.sigmoid_k * (raw_score - self.thresh_grounding))
+        )
 
     def calculate_logic_consistency(self, text):
         if not text or len(text) < 10:
             return 1.0
 
-        graph_engine = self.logic_graph_engine if self.logic_graph_engine is not None else self.graph_engine
+        graph_engine = (
+            self.logic_graph_engine
+            if self.logic_graph_engine is not None
+            else self.graph_engine
+        )
         triplets = graph_engine.extract_graph(text)
         clean_triplets = []
         seen = set()
@@ -508,8 +537,12 @@ class AutoCalibEvaluator:
         except Exception:
             bert_val = 0.0
 
-        graph_fwd = self.graph_engine.calculate_graph_support(premise_text=d1, hypothesis_text=d2)
-        graph_bwd = self.graph_engine.calculate_graph_support(premise_text=d2, hypothesis_text=d1)
+        graph_fwd = self.graph_engine.calculate_graph_support(
+            premise_text=d1, hypothesis_text=d2
+        )
+        graph_bwd = self.graph_engine.calculate_graph_support(
+            premise_text=d2, hypothesis_text=d1
+        )
         graph_val = (graph_fwd + graph_bwd) / 2.0
 
         final_stability = 0.2 * bert_val + 0.8 * graph_val
@@ -584,18 +617,20 @@ class AutoCalibEvaluator:
 
             score_full = self.compute_final_score(g_score, l_score, s_final)
 
-            results.append({
-                "Image_ID": img_id,
-                "Report_Control": t_ctrl,
-                "Report_Visual": t_visual,
-                "Report_Attack": t_attack,
-                "Metric_Grounding": g_score,
-                "Metric_Logic": l_score,
-                "Metric_Stability_Visual": s_visual,
-                "Metric_Stability_Semantic": s_semantic,
-                "Metric_Stability_Weighted": s_final,
-                "Score_Full": score_full,
-            })
+            results.append(
+                {
+                    "Image_ID": img_id,
+                    "Report_Control": t_ctrl,
+                    "Report_Visual": t_visual,
+                    "Report_Attack": t_attack,
+                    "Metric_Grounding": g_score,
+                    "Metric_Logic": l_score,
+                    "Metric_Stability_Visual": s_visual,
+                    "Metric_Stability_Semantic": s_semantic,
+                    "Metric_Stability_Weighted": s_final,
+                    "Score_Full": score_full,
+                }
+            )
 
         return pd.DataFrame(results), None
 
@@ -617,8 +652,12 @@ class AutoCalibEvaluator:
                 continue
 
             try:
-                processor = WSIProcessor(wsi_full_path, patch_size=Config.WSI_PATCH_SIZE)
-                patches_data = processor.sample_patches(num_patches=Config.WSI_SAMPLE_NUM)
+                processor = WSIProcessor(
+                    wsi_full_path, patch_size=Config.WSI_PATCH_SIZE
+                )
+                patches_data = processor.sample_patches(
+                    num_patches=Config.WSI_SAMPLE_NUM
+                )
             except Exception as e:
                 print(f"[Error] WSI Processing failed for {img_id}: {e}")
                 continue
@@ -639,7 +678,9 @@ class AutoCalibEvaluator:
                 temp_out = os.path.join(Config.TEMP_AUG_DIR, f"aug_{patch_id}.png")
                 patch_img.save(temp_in)
 
-                t_ctrl = gen_client.inference(temp_in, prompt_text=Config.PROMPT_NEUTRAL)
+                t_ctrl = gen_client.inference(
+                    temp_in, prompt_text=Config.PROMPT_NEUTRAL
+                )
                 texts_ctrl.append(t_ctrl)
 
                 l_c = self.calculate_logic_consistency(t_ctrl)
@@ -649,17 +690,27 @@ class AutoCalibEvaluator:
 
                 success = augmentor.augment(temp_in, temp_out)
                 if success:
-                    t_visual = gen_client.inference(temp_out, prompt_text=Config.PROMPT_NEUTRAL)
+                    t_visual = gen_client.inference(
+                        temp_out, prompt_text=Config.PROMPT_NEUTRAL
+                    )
                 else:
                     t_visual = t_ctrl
                 texts_visual.append(t_visual)
 
-                t_attack = gen_client.inference(temp_in, prompt_text=Config.PROMPT_ATTACK_MALIGNANT)
+                t_attack = gen_client.inference(
+                    temp_in, prompt_text=Config.PROMPT_ATTACK_MALIGNANT
+                )
                 texts_attack.append(t_attack)
 
-            combo_ctrl = "\n\n".join([f"Region {i+1}: {t}" for i, t in enumerate(texts_ctrl)])
-            combo_visual = "\n\n".join([f"Region {i+1}: {t}" for i, t in enumerate(texts_visual)])
-            combo_attack = "\n\n".join([f"Region {i+1}: {t}" for i, t in enumerate(texts_attack)])
+            combo_ctrl = "\n\n".join(
+                [f"Region {i+1}: {t}" for i, t in enumerate(texts_ctrl)]
+            )
+            combo_visual = "\n\n".join(
+                [f"Region {i+1}: {t}" for i, t in enumerate(texts_visual)]
+            )
+            combo_attack = "\n\n".join(
+                [f"Region {i+1}: {t}" for i, t in enumerate(texts_attack)]
+            )
 
             report_ctrl = gen_client.generate_mil_summary(combo_ctrl)
             report_visual = gen_client.generate_mil_summary(combo_visual)
@@ -670,20 +721,24 @@ class AutoCalibEvaluator:
             s_final_wsi = (w_visual * s_visual_wsi) + (w_semantic * s_semantic_wsi)
 
             avg_logic = np.mean(patch_logic_scores) if patch_logic_scores else 0.0
-            avg_grounding = np.mean(patch_grounding_scores) if patch_grounding_scores else 0.0
+            avg_grounding = (
+                np.mean(patch_grounding_scores) if patch_grounding_scores else 0.0
+            )
 
             score_full = self.compute_final_score(avg_grounding, avg_logic, s_final_wsi)
 
-            results.append({
-                "Image_ID": img_id,
-                "Report_Control": report_ctrl,
-                "Report_Visual": report_visual,
-                "Report_Attack": report_attack,
-                "Metric_Logic": avg_logic,
-                "Metric_Stability_Visual": s_visual_wsi,
-                "Metric_Stability_Semantic": s_semantic_wsi,
-                "Metric_Stability_Weighted": s_final_wsi,
-                "Score_Full": score_full,
-            })
+            results.append(
+                {
+                    "Image_ID": img_id,
+                    "Report_Control": report_ctrl,
+                    "Report_Visual": report_visual,
+                    "Report_Attack": report_attack,
+                    "Metric_Logic": avg_logic,
+                    "Metric_Stability_Visual": s_visual_wsi,
+                    "Metric_Stability_Semantic": s_semantic_wsi,
+                    "Metric_Stability_Weighted": s_final_wsi,
+                    "Score_Full": score_full,
+                }
+            )
 
         return pd.DataFrame(results), None

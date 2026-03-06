@@ -1,0 +1,13 @@
+numpy<2.0.0
+pandas
+scikit-learn
+math
+transformers>=4.34.0
+bert-score
+tqdm
+Pillow
+opencv-python-headless
+openslide-python
+tifffile
+requests
+spacy
