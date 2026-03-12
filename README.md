@@ -3,7 +3,7 @@
 ## Overview
 
 <p align="center">
-  <img src="./images/pic.pdf" alt="PathGLS Architecture Overview" width="800">
+  <img src="./images/pic.png" alt="PathGLS Architecture Overview" width="800">
 </p>
 
 **PathGLS** is a novel, reference-free evaluation framework designed to assess the trustworthiness of Vision-Language Models in computational pathology without relying on expert-annotated ground truths.
